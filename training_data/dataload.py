@@ -41,7 +41,7 @@ def download_openwebtext(target_size_gb=2, output_path="./training_data/raw/open
                 continue
 
             f.write(text) #writing in the file
-            f.write("\n\n")  # document separator, cuz we are writing in one single file txt and the dataset has many docs kinda
+            # f.write("\n")  # document separator, cuz we are writing in one single file txt and the dataset has many docs kinda
 
             total_bytes += len(text.encode("utf-8"))
             num_docs += 1
@@ -58,4 +58,4 @@ def download_openwebtext(target_size_gb=2, output_path="./training_data/raw/open
 
 
 if __name__ == "__main__":
-    download_openwebtext(target_size_gb=0.05)
+    download_openwebtext(target_size_gb=1)
