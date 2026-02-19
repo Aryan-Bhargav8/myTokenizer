@@ -1,6 +1,5 @@
 import os
 import json
-import regex as re
 from collections import Counter
 from pretokenize import pretokenize
 
@@ -77,6 +76,34 @@ def count_pairs(corpus_chunks: list[tuple[int]]) -> Counter:
     return pair_counts
 
 
+## Taken help from ai for parallelizing the pair counting
+from multiprocessing import Pool
+from functools import partial
+
+def count_pairs_parallel(corpus_chunks: list[tuple[int]], num_workers: int = 4) -> Counter:
+    """
+    Split corpus into chunks, count pairs in parallel, then merge counts.
+    """
+    if len(corpus_chunks) < 1000:  # not worth parallelizing small corpus
+        return count_pairs(corpus_chunks)
+    
+    # Split corpus into chunks for each worker
+    chunk_size = len(corpus_chunks) // num_workers
+    splits = [
+        corpus_chunks[i:i + chunk_size] 
+        for i in range(0, len(corpus_chunks), chunk_size)
+    ]
+    
+    # Count in parallel
+    with Pool(num_workers) as pool:
+        results = pool.map(count_pairs, splits)
+    
+    # Merge all counters
+    final_counts = Counter()
+    for result in results:
+        final_counts.update(result)
+    
+    return final_counts
 
 def merge_pair(corpus_chunks: list[tuple[int]], pair: tuple[int, int], new_id: int) -> list[tuple[int]]:
     """
@@ -142,43 +169,39 @@ def train(
     text = read_corpus(corpus_path, max_lines=max_lines)
     print(f"{len(text):,} characters loaded")
 
-        # Add this debug right at the start of your train() function, before pretokenization
-    with open("training_data/raw/openwebtext.txt", "rb") as f:
-        raw = f.read(100000)
-        
-    print(f"Byte 28 in raw file: {raw.count(28)}")
-    print(f"Byte 93 (']') in raw file: {raw.count(93)}")
-    print(f"Byte 95 ('_') in raw file: {raw.count(95)}")
-
-    # Now continue with your normal training
-    text = read_corpus(corpus_path, max_lines=max_lines)
-    print(f"\nByte 28 after read_corpus: {text.encode('utf-8').count(28)}")
-
-    string_chunks = pretokenize(text)
-    # Convert to bytes
-    corpus_chunks = [chunk_to_bytes(chunk) for chunk in string_chunks]
-
-    # Flatten and count
-    all_bytes = []
-    for chunk in corpus_chunks:
-        all_bytes.extend(chunk)
-
-    print(f"Byte 28 after pretokenize+encode: {all_bytes.count(28)}")
-    print(f"Byte 93 (']') after: {all_bytes.count(93)}")
-
     # Step 1: Pretokenize into string chunks
     print("\nPretokenizing...")
     string_chunks = pretokenize(text)
     print(f"{len(string_chunks):,} chunks")
 
-    # Step 2: Now we convert each each chunk to bytes
-    ## corpus_chunks is a list of tuples of byte integers
-    corpus_chunks = [chunk_to_bytes(chunk) for chunk in string_chunks]
 
-
-    # Step 3: Build the base vocabulary
+    # Step 2: Build the base vocabulary
     vocab = build_base_vocab()
     print(f"Base Vocab size: {len(vocab)}")
+
+
+    # Step 3: Now we convert each each chunk to bytes
+    ## corpus_chunks is a list of tuples of byte integers
+    # Adding this step cuz we need to create byte to vocab id mapping to prevent errors
+    byte_to_vocab_id = {}
+    for token_str, vocab_id in vocab.items():
+        # for single byte tokens, map byte-value to vocab_id
+        if len(token_str) == 1:
+            byte_val = ord(token_str)
+            if byte_val < 256: # its base byte token
+                byte_to_vocab_id[byte_val] = vocab_id
+
+    # NOW we do this step to convert the chunks to vocab ids and not raw bytes 
+    def chunk_to_vocab_ids(chunk: str) -> tuple[int]:
+        raw_bytes = chunk.encode("utf-8")
+        return tuple(byte_to_vocab_id[b] for b in raw_bytes)
+    
+
+    # this stores something fucking thing, ok it stores corrected corpus chunks with proper vocab ids instead of raw bytes
+
+    corpus_chunks = [chunk_to_vocab_ids(chunk) for chunk in string_chunks] 
+
+
 
     # now how many merges do we need
     num_merges = vocab_size - len(vocab)
@@ -200,7 +223,8 @@ def train(
     for i in range(num_merges):
 
         # Count all adjacent pairs in current corpus
-        pair_counts = count_pairs(corpus_chunks)
+        # pair_counts = count_pairs(corpus_chunks)
+        pair_counts = count_pairs_parallel(corpus_chunks, num_workers=4)
 
         if not pair_counts:
             print(f"No more pairs to merge at step {i}")
@@ -229,11 +253,13 @@ def train(
 
 
         # Progress
-        if (i+1) % 50 == 0 or i< 10:
-            print(f"Merge {i+1:4d}/{num_merges} ! "
-                  f"({id_to_token[best_pair[0]]!r} + {id_to_token[best_pair[1]]!r})"
-                  f"-> {new_token!r} !"
-                  f"freq={best_count}")
+
+        print(
+            f"Merge {i+1:4d}/{num_merges} ! "
+            f"({id_to_token[best_pair[0]]!r} + {id_to_token[best_pair[1]]!r})"
+            f"-> {new_token!r} !"
+            f"freq={best_count}"
+            )
             
     print(f"\nTraining complete. Final vocab size: {len(vocab)}")
 
@@ -253,7 +279,7 @@ def train(
 if __name__ == "__main__":
     train(
         corpus_path="./training_data/raw/openwebtext.txt",
-        vocab_size=700,
+        vocab_size=10000,
         save_dir="saved",
-        max_lines=1000
+        max_lines=50000
     )
