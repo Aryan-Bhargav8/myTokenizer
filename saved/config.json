@@ -1,0 +1,11 @@
+{
+  "vocab_size": 10000,
+  "num_merges": 9740,
+  "special_tokens": {
+    "<PAD>": 0,
+    "<UNK>": 1,
+    "<BOS>": 2,
+    "<EOS>": 3
+  },
+  "base_vocab_size": 260
+}
