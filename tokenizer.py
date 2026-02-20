@@ -121,7 +121,7 @@ class Tokenizer:
         return ids
     
 
-    def encode(self, text:str, add_speical_tokens: bool = False) -> list[int]:
+    def encode(self, text:str, add_special_tokens: bool = False) -> list[int]:
         """
         Encode text into token IDs
 
@@ -146,7 +146,7 @@ class Tokenizer:
             all_ids.extend(merged_ids)
 
         # step3: add special tokens if requested
-        if add_speical_tokens:
+        if add_special_tokens:
             bos_id = self.special_tokens["<BOS>"]
             eos_id = self.special_tokens["<EOS>"]
             all_ids = [bos_id] + all_ids + [eos_id]
