@@ -116,6 +116,15 @@ def merge_pair(corpus_chunks: list[tuple[int]], pair: tuple[int, int], new_id: i
     new_corpus = []
 
     for chunk in corpus_chunks:
+
+        # convert to set for O(1) lookup instead of O(n) scan
+        chunk_set = set(chunk)
+
+        if pair[0] not in chunk_set:
+            new_corpus.append(chunk) # no merge needed, reuse unchanged
+            continue
+
+        # only process chunks that might have the pair
         new_chunk = []
         i = 0
         while i < len(chunk):
@@ -276,10 +285,14 @@ def train(
 
 
 # Entry Point -------------------------------------------
+import time
 if __name__ == "__main__":
+    start_time = time.time()
     train(
         corpus_path="./training_data/raw/openwebtext.txt",
         vocab_size=10000,
         save_dir="saved",
         max_lines=50000
     )
+    total_time_taken = time.time() - start_time
+    print(f"{total_time_taken:.2f} seconds")
