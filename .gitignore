@@ -1,3 +1,6 @@
 __pycache__
 .vscode
 openwebtext.txt
+
+huggingTokenizer.py
+saved/tokenizer.json
