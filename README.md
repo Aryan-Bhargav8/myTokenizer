@@ -1,5 +1,7 @@
 # myTokenizer
 
+My Implementation of Byte Pair Encoding Algorithm.
+ 
 A simple tokenizer utility for processing and breaking down text into individual tokens.
 
 ## About
